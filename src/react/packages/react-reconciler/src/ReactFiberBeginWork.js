@@ -3952,7 +3952,7 @@ function beginWork(
       );
     }
   }
-
+  // 更新流程
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
@@ -4000,6 +4000,7 @@ function beginWork(
       }
     }
   } else {
+    // mount加载流程
     didReceiveUpdate = false;
 
     if (getIsHydrating() && isForkedChild(workInProgress)) {
@@ -4026,6 +4027,7 @@ function beginWork(
   workInProgress.lanes = NoLanes;
   // beginWork方法后续的内容就是根据workInProgress.tag的值，进入不同的组件处理逻辑。
   switch (workInProgress.tag) {
+    // 函数组件 mount
     case IndeterminateComponent: {
       return mountIndeterminateComponent(
         current,
@@ -4034,6 +4036,7 @@ function beginWork(
         renderLanes,
       );
     }
+    // 延迟加载组件
     case LazyComponent: {
       const elementType = workInProgress.elementType;
       return mountLazyComponent(
@@ -4043,6 +4046,7 @@ function beginWork(
         renderLanes,
       );
     }
+    // 函数组件 update
     case FunctionComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
@@ -4058,6 +4062,7 @@ function beginWork(
         renderLanes,
       );
     }
+    // 类组件分支
     case ClassComponent: {
       const Component = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
@@ -4073,6 +4078,7 @@ function beginWork(
         renderLanes,
       );
     }
+    // 根节点的处理【第一次都会走这里】
     case HostRoot:
       return updateHostRoot(current, workInProgress, renderLanes);
     case HostResource:
@@ -4085,14 +4091,17 @@ function beginWork(
         return updateHostSingleton(current, workInProgress, renderLanes);
       }
     // eslint-disable-next-line no-fallthrough
+    // 代表原生Element元素，div,span
     case HostComponent:
       return updateHostComponent(current, workInProgress, renderLanes);
+     // 文本类型
     case HostText:
       return updateHostText(current, workInProgress);
     case SuspenseComponent:
       return updateSuspenseComponent(current, workInProgress, renderLanes);
     case HostPortal:
       return updatePortalComponent(current, workInProgress, renderLanes);
+    // 处理ForwardRef组件 11
     case ForwardRef: {
       const type = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
@@ -4118,6 +4127,9 @@ function beginWork(
       return updateContextProvider(current, workInProgress, renderLanes);
     case ContextConsumer:
       return updateContextConsumer(current, workInProgress, renderLanes);
+    // memo组件处理 14
+    // 简单MemoComponent在首次创建时也会走这里，更新时会走下面updateSimpleMemoComponent
+    // 因为它会在进入MemoComponent后，进入另外一个分支，走updateSimpleMemoComponent
     case MemoComponent: {
       const type = workInProgress.type;
       const unresolvedProps = workInProgress.pendingProps;
@@ -4145,6 +4157,7 @@ function beginWork(
         renderLanes,
       );
     }
+    // 简单memo组件：15
     case SimpleMemoComponent: {
       return updateSimpleMemoComponent(
         current,
