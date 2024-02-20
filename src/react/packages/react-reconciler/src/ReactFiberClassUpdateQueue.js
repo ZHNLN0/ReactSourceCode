@@ -129,14 +129,14 @@ import assign from 'shared/assign';
 export type Update<State> = {
   // TODO: Temporary field. Will remove this by storing a map of
   // transition -> event time on the root.
-  eventTime: number,
-  lane: Lane,
+  eventTime: number,                 // 当前操作的时间 通过 performance.now() 获取的毫秒数。
+  lane: Lane,                        // 优先级
 
-  tag: 0 | 1 | 2 | 3,
-  payload: any,
-  callback: (() => mixed) | null,
+  tag: 0 | 1 | 2 | 3,               // 执行的操作 包括 UpdateState | ReplaceState | ForceUpdate | CaptureUpdate。
+  payload: any,                     // 更新挂载的数据，不同类型组件挂载的数据不同。对于 ClassComponent，payload 为 this.setState的第一个传参。对于 HostRoot，payload 为 ReactDOM.render 的第一个传参。
+  callback: (() => mixed) | null,   // 更新的回调函数，也就是 setState 的第二个参数。
 
-  next: Update<State> | null,
+  next: Update<State> | null,       // 与其他 Update 连接形成链表，例如如果同时触发多个 setState 时会形成多个 Update，然后通过 next 连接。
 };
 
 export type SharedQueue<State> = {
@@ -146,11 +146,11 @@ export type SharedQueue<State> = {
 };
 
 export type UpdateQueue<State> = {
-  baseState: State,
-  firstBaseUpdate: Update<State> | null,
-  lastBaseUpdate: Update<State> | null,
-  shared: SharedQueue<State>,
-  callbacks: Array<() => mixed> | null,
+  baseState: State,                       // 前一次更新计算得出的状态，
+  firstBaseUpdate: Update<State> | null,  // 上次渲染时遗的链表头节点
+  lastBaseUpdate: Update<State> | null,   // 上次渲染时遗的链表尾节点
+  shared: SharedQueue<State>,             // 本次渲染时要执行的任务
+  callbacks: Array<() => mixed> | null,   // 有回调函数的update
 };
 
 export const UpdateState = 0;     // 1，默认情况：通过ReactDOM.createRoot或者this.setState触发
@@ -176,11 +176,11 @@ if (__DEV__) {
 
 export function initializeUpdateQueue<State>(fiber: Fiber): void {
   const queue: UpdateQueue<State> = {
-    baseState: fiber.memoizedState,
+    baseState: fiber.memoizedState, // 前一次更新计算得出的状态，
     firstBaseUpdate: null,
     lastBaseUpdate: null,
     shared: {
-      pending: null,
+      pending: null,                // 更新操作的循环链表
       lanes: NoLanes,
       hiddenCallbacks: null,
     },
@@ -486,11 +486,11 @@ export function processUpdateQueue<State>(
     // $FlowFixMe[escaped-generic] discovered when updating Flow
     currentlyProcessingQueue = queue.shared;
   }
-
+  // 获取上一次还没有渲染的队列 firstBaseUpdate 和 lastBaseUpdate
   let firstBaseUpdate = queue.firstBaseUpdate;
   let lastBaseUpdate = queue.lastBaseUpdate;
 
-  // Check if there are pending updates. If so, transfer them to the base queue.
+  // 将 pendingQueue 拼接到，更新链表 queue.firstBaseUpdate 的后面，我们先处理遗留的，再处理当前的
   let pendingQueue = queue.shared.pending;
   if (pendingQueue !== null) {
     queue.shared.pending = null;
@@ -513,11 +513,13 @@ export function processUpdateQueue<State>(
     // queue is a singly-linked list with no cycles, we can append to both
     // lists and take advantage of structural sharing.
     // TODO: Pass `current` as argument
+    // 若workInProgress 树对应的在 current 树的那个 fiber 节点存在，
     const current = workInProgress.alternate;
     if (current !== null) {
       // This is always non-null on a ClassComponent or HostRoot
       const currentQueue: UpdateQueue<State> = (current.updateQueue: any);
       const currentLastBaseUpdate = currentQueue.lastBaseUpdate;
+      // 若current更新链表的最后那个节点与当前将要更新的链表的最后那个节点不一样则，把将要更新的链表也拼接到current中
       if (currentLastBaseUpdate !== lastBaseUpdate) {
         if (currentLastBaseUpdate === null) {
           currentQueue.firstBaseUpdate = firstPendingUpdate;
@@ -532,9 +534,11 @@ export function processUpdateQueue<State>(
   // These values may change as we process the queue.
   if (firstBaseUpdate !== null) {
     // Iterate through the list of updates to compute the result.
+    // 新的 state
     let newState = queue.baseState;
     // TODO: Don't need to accumulate this. Instead, we can remove renderLanes
     // from the original lanes.
+    // 新的 lane 优先级
     let newLanes = NoLanes;
 
     let newBaseState = null;
@@ -542,6 +546,7 @@ export function processUpdateQueue<State>(
     let newLastBaseUpdate = null;
 
     let update: Update<State> = firstBaseUpdate;
+    // 队列的循环处理
     do {
       // TODO: Don't need this field anymore
       const updateEventTime = update.eventTime;

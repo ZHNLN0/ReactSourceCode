@@ -4,7 +4,7 @@ import { useEffect, createElement, useState } from './react/packages/react';
 import MyFun from './views/MyFun.js';
 import MyClass from './views/MyClass.js';
 
-export default function App() {
+export default function App(props) {
   console.log('App组件运行了')
   useEffect(() => {
     console.log('App useEffect')

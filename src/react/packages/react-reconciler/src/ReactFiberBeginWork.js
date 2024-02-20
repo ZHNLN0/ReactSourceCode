@@ -1452,6 +1452,7 @@ function updateHostRoot(current, workInProgress, renderLanes) {
   const prevChildren = prevState.element;
   // workInProgress 创建是 UpdateQueue是直接做赋值操作的，这里做引用断开连接操作
   cloneUpdateQueue(current, workInProgress);
+  // 处理更新队列
   processUpdateQueue(workInProgress, nextProps, null, renderLanes);
   // 处理后的state
   const nextState: RootState = workInProgress.memoizedState;
