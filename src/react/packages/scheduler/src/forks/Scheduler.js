@@ -146,15 +146,20 @@ function advanceTimers(currentTime: number) {
   }
 }
 
+// 
 function handleTimeout(currentTime: number) {
   isHostTimeoutScheduled = false;
+  // 将到期的定时任务移到正常的任务队列中
   advanceTimers(currentTime);
 
+  // 如果当前没有执行的任务，并且任务队列有任务的话，就在下一个调度中开始执行这个任务
+  // 注意：虽然执行的事任务队列的任务，但是本质还是到期延时任务过来的任务
   if (!isHostCallbackScheduled) {
     if (peek(taskQueue) !== null) {
       isHostCallbackScheduled = true;
       requestHostCallback(flushWork);
     } else {
+      // 任务队列执行完毕后，如果延时任务还没到期的话，就拿出第一个任务，在到期时间把这个延时任务放到任务队列中，开始这个任务
       const firstTimer = peek(timerQueue);
       if (firstTimer !== null) {
         requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
@@ -292,6 +297,7 @@ function workLoop(hasTimeRemaining: boolean, initialTime: number) {
     // 还有工作，则会生成一个新的宏任务，在下次的宏任务中继续执行剩下的任务
     return true;
   } else {
+    // 当任务结束完成后，并且还有时间继续执行的话，就会取出第一个延时任务，如果存在延时任务，那就会去执行
     const firstTimer = peek(timerQueue);
     if (firstTimer !== null) {
       requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);

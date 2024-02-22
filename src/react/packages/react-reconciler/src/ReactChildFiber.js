@@ -25,7 +25,7 @@ import {
   REACT_FRAGMENT_TYPE,
   REACT_PORTAL_TYPE,
   REACT_LAZY_TYPE,
-} from 'shared/ReactSymbols';
+} from '../../shared/ReactSymbols';
 import {ClassComponent, HostText, HostPortal, Fragment} from './ReactWorkTags';
 import isArray from 'shared/isArray';
 import {warnAboutStringRefs} from 'shared/ReactFeatureFlags';
@@ -1156,15 +1156,26 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
   ): Fiber {
     const key = element.key;
     let child = currentFirstChild;
+
+    // while 循环在创建的时候不会进入该逻辑，此时child === null
+    // 循环检测一层中和当前节点的 key
+    // 本质就是两个FiberTree 同一层的节点的Key 是否相同，相同就复用，不相同就删除
     while (child !== null) {
       // TODO: If key === null and child.key === null, then this only applies to
       // the first item in the list.
+      // 如果key===null和child.key===null，则这只适用于列表中的第一项。
+      // 当前要构建的Fiber节点和展示的FiberTree的第一个子节点 key 相同时
       if (child.key === key) {
         const elementType = element.type;
+        // 两者type一样且都是空标签判断
         if (elementType === REACT_FRAGMENT_TYPE) {
+          // 子节点也是空标签的话
           if (child.tag === Fragment) {
+            // 已找到可复用Fiber子节点且确认只有一个子节点，因此标记删除掉该child节点的所有sibling节点
             deleteRemainingChildren(returnFiber, child.sibling);
+            // 该节点是fragment类型，则复用其children
             const existing = useFiber(child, element.props.children);
+            // 重置新Fiber节点的return指针，指向当前Fiber节点
             existing.return = returnFiber;
             if (__DEV__) {
               existing._debugSource = element._source;
@@ -1173,6 +1184,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
             return existing;
           }
         } else {
+          // 两者type 一样但不是空标签
           if (
             child.elementType === elementType ||
             // Keep this check inline so it only runs on the false path:
@@ -1188,9 +1200,13 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
               elementType.$$typeof === REACT_LAZY_TYPE &&
               resolveLazy(elementType) === child.type)
           ) {
+            // 已找到可复用Fiber子节点且确认只有一个子节点，因此标记删除掉该child节点的所有sibling节点
             deleteRemainingChildren(returnFiber, child.sibling);
+            // 复用 child 节点和 element.props 属性
             const existing = useFiber(child, element.props);
+            // 处理ref
             existing.ref = coerceRef(returnFiber, child, element);
+            // 重置新Fiber节点的return指针，指向当前Fiber节点
             existing.return = returnFiber;
             if (__DEV__) {
               existing._debugSource = element._source;
@@ -1203,22 +1219,28 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
         deleteRemainingChildren(returnFiber, child);
         break;
       } else {
+        // key一样，类型不同，直接删除该节点和其兄弟节点
         deleteChild(returnFiber, child);
       }
+      // 更新为兄弟节点：再次处理更新逻辑
       child = child.sibling;
     }
-
+    // 空标签节点
     if (element.type === REACT_FRAGMENT_TYPE) {
+      // 创建空标签节点的FiberNode
       const created = createFiberFromFragment(
         element.props.children,
         returnFiber.mode,
         lanes,
         element.key,
       );
+      // 新节点的 return 指向到父级节点
       created.return = returnFiber;
       return created;
     } else {
+      // 创建其他类型节点的FiberNode
       const created = createFiberFromElement(element, returnFiber.mode, lanes);
+      // 处理 ref 情况
       created.ref = coerceRef(returnFiber, currentFirstChild, element);
       created.return = returnFiber;
       return created;
@@ -1278,6 +1300,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     // Handle top level unkeyed fragments as if they were arrays.
     // This leads to an ambiguity between <>{[...]}</> and <>...</>.
     // We treat the ambiguous cases above the same.
+    // 处理 <>...</> 这种没有跟节点，却又子节点的情况
     const isUnkeyedTopLevelFragment =
       typeof newChild === 'object' &&
       newChild !== null &&
@@ -1288,8 +1311,10 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     }
 
     // Handle object types
+    // 1，单个子节点处理
     if (typeof newChild === 'object' && newChild !== null) {
       switch (newChild.$$typeof) {
+        // 最常见的react-element元素类型：react中类组件，函数组件，普通dom组件都属于此类型
         case REACT_ELEMENT_TYPE:
           return placeSingleChild(
             reconcileSingleElement(
@@ -1319,7 +1344,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
             lanes,
           );
       }
-
+      // 2. 数组节点的处理，即多个子节点，比如div.App下面有三个子节点
       if (isArray(newChild)) {
         return reconcileChildrenArray(
           returnFiber,
@@ -1341,6 +1366,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
       throwOnInvalidObjectType(returnFiber, newChild);
     }
 
+    // 3，处理文本子节点
     if (
       (typeof newChild === 'string' && newChild !== '') ||
       typeof newChild === 'number'
@@ -1362,12 +1388,15 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     }
 
     // Remaining cases are all treated as empty.
+    //  # newChild为null时，表示没有子节点了，会返回一个null，由此一组beginWork工作执行完成，
     return deleteRemainingChildren(returnFiber, currentFirstChild);
   }
 
   return reconcileChildFibers;
 }
 
+// createChildReconciler 函数的形参 shouldTrackSideEffects 表示 是否追踪副作用
+// reconcileChildFibers
 export const reconcileChildFibers: ChildReconciler = createChildReconciler(
   true,
 );

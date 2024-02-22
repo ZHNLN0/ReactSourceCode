@@ -124,7 +124,7 @@ import {
 } from './ReactFiberConcurrentUpdates';
 import {setIsStrictModeForDevtools} from './ReactFiberDevToolsHook';
 
-import assign from 'shared/assign';
+import assign from '../../shared/assign';
 
 export type Update<State> = {
   // TODO: Temporary field. Will remove this by storing a map of
@@ -155,7 +155,7 @@ export type UpdateQueue<State> = {
 
 export const UpdateState = 0;     // 1，默认情况：通过ReactDOM.createRoot或者this.setState触发
 export const ReplaceState = 1;    // 2，在classCompont组件生命周期函数中使用this.setState触发更新
-export const ForceUpdate = 2;     // 3，通过this.forceUpdate触发
+export const ForceUpdate = 2;     // 3，通过this.forceUpdate 强制更新触发
 export const CaptureUpdate = 3;   // 4，发生错误的情况下在classComponent或者HostRoot中触发更新
 
 // Global state that is reset at the beginning of calling `processUpdateQueue`.
@@ -388,6 +388,7 @@ export function enqueueCapturedUpdate<State>(
   queue.lastBaseUpdate = capturedUpdate;
 }
 
+// 处理更新链表任务
 function getStateFromUpdate<State>(
   workInProgress: Fiber,
   queue: UpdateQueue<State>,
@@ -432,6 +433,7 @@ function getStateFromUpdate<State>(
     case UpdateState: {
       const payload = update.payload;
       let partialState;
+      // 若payload是function，则将prevState作为参数传入，执行payload()
       if (typeof payload === 'function') {
         // Updater function
         if (__DEV__) {
@@ -461,6 +463,7 @@ function getStateFromUpdate<State>(
         return prevState;
       }
       // Merge the partial state and the previous state.
+      // 与之前的state数据进行合并
       return assign({}, prevState, partialState);
     }
     case ForceUpdate: {
@@ -490,22 +493,28 @@ export function processUpdateQueue<State>(
   let firstBaseUpdate = queue.firstBaseUpdate;
   let lastBaseUpdate = queue.lastBaseUpdate;
 
-  // 将 pendingQueue 拼接到，更新链表 queue.firstBaseUpdate 的后面，我们先处理遗留的，再处理当前的
+  // 取出当前调度需要操作的更新任务
   let pendingQueue = queue.shared.pending;
   if (pendingQueue !== null) {
+    // 将本次调度的需要执行的更新置空
     queue.shared.pending = null;
 
     // The pending queue is circular. Disconnect the pointer between first
     // and last so that it's non-circular.
+    // 取出更新队列的第一个任务和最后一个任务，
     const lastPendingUpdate = pendingQueue;
     const firstPendingUpdate = lastPendingUpdate.next;
+    // 并断开环状链表
     lastPendingUpdate.next = null;
     // Append pending updates to base queue
+    // lastBaseUpdate === null 时，表示上一个调度中更新任务全部完成，把本次调度的要执行的任务第一个任务放到 firstBaseUpdate
     if (lastBaseUpdate === null) {
       firstBaseUpdate = firstPendingUpdate;
     } else {
+      // 表示上一个调度中更新任务没有全部完成，就把当前的第一个任务接到上一次调度的最后一个任务
       lastBaseUpdate.next = firstPendingUpdate;
     }
+    // lastBaseUpdate 更新为本次调度更新任务的最后一个更新任务
     lastBaseUpdate = lastPendingUpdate;
 
     // If there's a current queue, and it's different from the base queue, then
@@ -513,7 +522,7 @@ export function processUpdateQueue<State>(
     // queue is a singly-linked list with no cycles, we can append to both
     // lists and take advantage of structural sharing.
     // TODO: Pass `current` as argument
-    // 若workInProgress 树对应的在 current 树的那个 fiber 节点存在，
+    // alternate 为旧的节点，将本次更新任务操作同步到久节点中
     const current = workInProgress.alternate;
     if (current !== null) {
       // This is always non-null on a ClassComponent or HostRoot
@@ -532,6 +541,7 @@ export function processUpdateQueue<State>(
   }
 
   // These values may change as we process the queue.
+  // firstBaseUpdate 存在时表示当前的调度有更新任务
   if (firstBaseUpdate !== null) {
     // Iterate through the list of updates to compute the result.
     // 新的 state
@@ -546,7 +556,7 @@ export function processUpdateQueue<State>(
     let newLastBaseUpdate = null;
 
     let update: Update<State> = firstBaseUpdate;
-    // 队列的循环处理
+    // 开始遍历更新任务链表，执行更新任务
     do {
       // TODO: Don't need this field anymore
       const updateEventTime = update.eventTime;
@@ -554,12 +564,16 @@ export function processUpdateQueue<State>(
       // An extra OffscreenLane bit is added to updates that were made to
       // a hidden tree, so that we can distinguish them from updates that were
       // already there when the tree was hidden.
+      // 在对隐藏树进行的更新中添加了一个额外的OffscreenLane位，
+      // 这样我们就可以将它们与隐藏树时已经存在的更新区分开来。
       const updateLane = removeLanes(update.lane, OffscreenLane);
       const isHiddenUpdate = updateLane !== update.lane;
 
       // Check if this update was made while the tree was hidden. If so, then
       // it's not a "base" update and we should disregard the extra base lanes
       // that were added to renderLanes when we entered the Offscreen tree.
+      // 检查此更新是否是在隐藏树时进行的。如果是这样，
+      // 那么这不是“基本”更新，我们应该忽略在进入屏幕外树时添加到renderLanes的额外基本车道。
       const shouldSkipUpdate = isHiddenUpdate
         ? !isSubsetOfLanes(getWorkInProgressRootRenderLanes(), updateLane)
         : !isSubsetOfLanes(renderLanes, updateLane);
@@ -568,6 +582,7 @@ export function processUpdateQueue<State>(
         // Priority is insufficient. Skip this update. If this is the first
         // skipped update, the previous update/state is the new base
         // update/state.
+        // 优先级不足。跳过此更新。如果这是第一次跳过的更新，则先前的更新/状态为新的基本更新/状态。
         const clone: Update<State> = {
           eventTime: updateEventTime,
           lane: updateLane,
@@ -610,6 +625,7 @@ export function processUpdateQueue<State>(
         }
 
         // Process this update.
+        // 计算新的state
         newState = getStateFromUpdate(
           workInProgress,
           queue,
@@ -618,6 +634,7 @@ export function processUpdateQueue<State>(
           props,
           instance,
         );
+        // 当前更新队列有回调，执行回调
         const callback = update.callback;
         if (callback !== null) {
           workInProgress.flags |= Callback;
@@ -633,12 +650,16 @@ export function processUpdateQueue<State>(
         }
       }
       // $FlowFixMe[incompatible-type] we bail out when we get a null
+      // 开始下一个任务
       update = update.next;
+
+      // 当前的更新任务全部执行完成后，还要继续检查是否有新的任务插进来，没有就退出循环，有的话还要继续执行插进来的任务
       if (update === null) {
         pendingQueue = queue.shared.pending;
         if (pendingQueue === null) {
           break;
         } else {
+          // 继续执行插进来的任务
           // An update was scheduled from inside a reducer. Add the new
           // pending updates to the end of the list and keep processing.
           const lastPendingUpdate = pendingQueue;
@@ -654,13 +675,17 @@ export function processUpdateQueue<State>(
     } while (true);
 
     if (newLastBaseUpdate === null) {
+      // 没出现 update 被延迟的情况下，把的计算结果赋值给 newBaseState
       newBaseState = newState;
     }
 
+    // 把 newBaseState 给到 baseState
     queue.baseState = ((newBaseState: any): State);
+    // 保存被延迟的 update，没有的话就都是null 代表都执行完了
     queue.firstBaseUpdate = newFirstBaseUpdate;
     queue.lastBaseUpdate = newLastBaseUpdate;
 
+    // 当所有的执行任务都执行完后，将 lanes 置为0
     if (firstBaseUpdate === null) {
       // `queue.lanes` is used for entangling transitions. We can set it back to
       // zero once the queue is empty.
@@ -674,8 +699,10 @@ export function processUpdateQueue<State>(
     // dealt with the props. Context in components that specify
     // shouldComponentUpdate is tricky; but we'll have to account for
     // that regardless.
+    // 标记跳过的更新管道有哪些
     markSkippedUpdateLanes(newLanes);
     workInProgress.lanes = newLanes;
+    // 更新 workInProgress（新节点）的 memoizedState
     workInProgress.memoizedState = newState;
   }
 

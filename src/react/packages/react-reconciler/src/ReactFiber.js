@@ -499,6 +499,7 @@ export function createFiberFromTypeAndProps(
   // The resolved type is set if we know what the final type will be. I.e. it's not lazy.
   let resolvedType = type;
   if (typeof type === 'function') {
+    // 是否是类组件，是的话修改 fiberTag
     if (shouldConstruct(type)) {
       fiberTag = ClassComponent;
       if (__DEV__) {
@@ -510,6 +511,7 @@ export function createFiberFromTypeAndProps(
       }
     }
   } else if (typeof type === 'string') {
+    // type是普通的html标签 然后根据不同情况计算 fiberTag
     if (
       enableFloat &&
       supportsResources &&
@@ -533,6 +535,7 @@ export function createFiberFromTypeAndProps(
       fiberTag = HostComponent;
     }
   } else {
+    // 还有其他type类型的处理，就暂不考虑
     getTag: switch (type) {
       case REACT_FRAGMENT_TYPE:
         return createFiberFromFragment(pendingProps.children, mode, lanes, key);
@@ -631,7 +634,7 @@ export function createFiberFromTypeAndProps(
       }
     }
   }
-
+  
   const fiber = createFiber(fiberTag, pendingProps, key, mode);
   fiber.elementType = type;
   fiber.type = resolvedType;

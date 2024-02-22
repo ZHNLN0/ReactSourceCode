@@ -64,18 +64,22 @@ export function finishQueueingConcurrentUpdates(): void {
     const lane: Lane = concurrentQueues[i];
     concurrentQueues[i++] = null;
 
+    // 将当前的任务的更新队列构建成一个环形链表
     if (queue !== null && update !== null) {
       const pending = queue.pending;
+      // 当前更新队列（可能是上一个调度到期后还没执行的更新任务）没有要继续执行的任务时，自身构建成环形任务
       if (pending === null) {
         // This is the first update. Create a circular list.
         update.next = update;
       } else {
+        // 上一个调度到期后，还有更新任务时，就把当前的任务当到任务链表第二位
         update.next = pending.next;
         pending.next = update;
       }
       queue.pending = update;
     }
 
+    // 把当前任务的更新管道依次标记到父节点的childLanes上，表示有子节点需要更新
     if (lane !== NoLane) {
       markUpdateLaneFromFiberToRoot(fiber, update, lane);
     }
@@ -185,6 +189,8 @@ export function unsafe_markUpdateLaneFromFiberToRoot(
   return root;
 }
 
+// 把当前任务的更新管道依次标记到父节点的childLanes上，表示有子节点需要更新
+// 注意：标记过程中会出现合并更新管道的操作
 function markUpdateLaneFromFiberToRoot(
   sourceFiber: Fiber,
   update: ConcurrentUpdate | null,

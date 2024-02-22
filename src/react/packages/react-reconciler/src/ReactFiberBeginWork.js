@@ -325,6 +325,7 @@ export function reconcileChildren(
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
     // we can optimize this reconciliation pass by not tracking side-effects.
+    // 加载流程
     workInProgress.child = mountChildFibers(
       workInProgress,
       null,
@@ -338,11 +339,12 @@ export function reconcileChildren(
 
     // If we had any progressed work already, that is invalid at this point so
     // let's throw it out.
+    // 更新协调流程， 更新当前节点的child内容
     workInProgress.child = reconcileChildFibers(
-      workInProgress,
-      current.child,
-      nextChildren,
-      renderLanes,
+      workInProgress, // 父节点
+      current.child,  // 旧的child， null
+      nextChildren,   // 新的child
+      renderLanes,    // 本次更新的lanes
     );
   }
 }
@@ -1454,7 +1456,7 @@ function updateHostRoot(current, workInProgress, renderLanes) {
   cloneUpdateQueue(current, workInProgress);
   // 处理更新队列
   processUpdateQueue(workInProgress, nextProps, null, renderLanes);
-  // 处理后的state
+  // 进过 processUpdateQueue 处理后的state
   const nextState: RootState = workInProgress.memoizedState;
   const root: FiberRoot = workInProgress.stateNode;
   pushRootTransition(workInProgress, root, renderLanes);
@@ -1463,6 +1465,7 @@ function updateHostRoot(current, workInProgress, renderLanes) {
     pushRootMarkerInstance(workInProgress);
   }
 
+  // 缓存相关暂不考虑
   if (enableCache) {
     const nextCache: Cache = nextState.cache;
     pushCacheProvider(workInProgress, nextCache);
