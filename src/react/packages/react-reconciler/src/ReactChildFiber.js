@@ -577,6 +577,15 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     return null;
   }
 
+  /**
+   * 
+   * @param {*} returnFiber 
+   * @param {*} oldFiber 
+   * @param {*} newChild 
+   * @param {*} lanes 
+   * @description 对比新旧的节点的key 尽可能的复用旧的节点，如果无法复用就放回null，能够复用不在新建FiberNode
+   * @returns 
+   */
   function updateSlot(
     returnFiber: Fiber,
     oldFiber: Fiber | null,
@@ -755,6 +764,15 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     return knownKeys;
   }
 
+
+  /**
+   * @param {*} returnFiber 
+   * @param {*} currentFirstChild 
+   * @param {*} newChildren 
+   * @param {*} lanes 
+   * @description 多个子节点创建
+   * @returns 放回结果为第一个创建的子节点
+   */
   function reconcileChildrenArray(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -788,27 +806,34 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
         knownKeys = warnOnInvalidKey(child, knownKeys, returnFiber);
       }
     }
-
+    // 记录第一个子节点，并作为结果返回
     let resultingFirstChild: Fiber | null = null;
+    // 记录处理到第几个子节点了
     let previousNewFiber: Fiber | null = null;
 
     let oldFiber = currentFirstChild;
     let lastPlacedIndex = 0;
     let newIdx = 0;
     let nextOldFiber = null;
+    // 旧节点存在时，初始化时暂不考虑
     for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+      // 如果旧的节点大于新的
       if (oldFiber.index > newIdx) {
         nextOldFiber = oldFiber;
         oldFiber = null;
       } else {
+        // 旧 fiber 的索引和 newChildren 的索引匹配上了，获取 oldFiber 的下一个兄弟节点
         nextOldFiber = oldFiber.sibling;
       }
+      // 比较旧的节点和将要转换的 element 创建新的节点
+      // 新旧节点的Key 对应上是才会复用旧节点，否则就会放回null
       const newFiber = updateSlot(
         returnFiber,
         oldFiber,
         newChildren[newIdx],
         lanes,
       );
+      // 匹配失败，不能复用 退出当前循环
       if (newFiber === null) {
         // TODO: This breaks on empty slots like null children. That's
         // unfortunate because it triggers the slow path all the time. We need
@@ -820,13 +845,17 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
         break;
       }
       if (shouldTrackSideEffects) {
+        // newFiber 不是基于 oldFiber 的 alternate 创建的，销毁旧节点
         if (oldFiber && newFiber.alternate === null) {
           // We matched the slot, but we didn't reuse the existing fiber, so we
           // need to delete the existing child.
           deleteChild(returnFiber, oldFiber);
         }
       }
+      // 更新lastPlacedIndex
       lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+      // previousNewFiber === null 表示处理的是第一个子节点，更新 resultingFirstChild
+      // 否则 将上一个子节点的 sibling 执行新节点
       if (previousNewFiber === null) {
         // TODO: Move out of the loop. This only happens for the first run.
         resultingFirstChild = newFiber;
@@ -837,49 +866,62 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
         // with the previous one.
         previousNewFiber.sibling = newFiber;
       }
+      // 将上一个子节点位置移到新创建的子节点开始下一个子节点任务创建
       previousNewFiber = newFiber;
       oldFiber = nextOldFiber;
     }
 
+    // 当所有的新的子节点都能复用时
     if (newIdx === newChildren.length) {
       // We've reached the end of the new children. We can delete the rest.
+      // 删除旧链表中剩余的节点
       deleteRemainingChildren(returnFiber, oldFiber);
       if (getIsHydrating()) {
         const numberOfForks = newIdx;
         pushTreeFork(returnFiber, numberOfForks);
       }
+      // 返回新链表的头节点指针
       return resultingFirstChild;
     }
-
+    // 旧节点不存在会直接创建所有子节点，初始化流程会进入这里
     if (oldFiber === null) {
       // If we don't have any more existing children we can choose a fast path
       // since the rest will all be insertions.
       for (; newIdx < newChildren.length; newIdx++) {
+        // 创建子节点FiberNode
         const newFiber = createChild(returnFiber, newChildren[newIdx], lanes);
         if (newFiber === null) {
           continue;
         }
+        // 为子节点标记在一组子节点中的位置，并更新 lastPlacedIndex
         lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        // previousNewFiber === null 表示处理的是第一个子节点，更新 resultingFirstChild
+        // 否则 将上一个子节点的 sibling 执行新节点
         if (previousNewFiber === null) {
           // TODO: Move out of the loop. This only happens for the first run.
           resultingFirstChild = newFiber;
         } else {
           previousNewFiber.sibling = newFiber;
         }
+        // 将上一个子节点位置移到新创建的子节点开始下一个子节点任务创建
         previousNewFiber = newFiber;
       }
       if (getIsHydrating()) {
         const numberOfForks = newIdx;
         pushTreeFork(returnFiber, numberOfForks);
       }
+      // 将第一个创建的子节点作为结果返回
       return resultingFirstChild;
     }
 
     // Add all children to a key map for quick lookups.
+    // 如果新旧元素都没遍历完， mapRemainingChildren 生成一个以 oldFiber 的 key 为 key， oldFiber 为 value 的 map
     const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
 
     // Keep scanning and use the map to restore deleted items as moves.
+    // 进过复用旧节点，且还有部门新的子节点没有创建是，就需要继续创建无法被复用的子节点
     for (; newIdx < newChildren.length; newIdx++) {
+      // 从 map 中查找是否存在可以复用的fiber节点，然后生成新的fiber节点
       const newFiber = updateFromMap(
         existingChildren,
         returnFiber,
@@ -889,6 +931,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
       );
       if (newFiber !== null) {
         if (shouldTrackSideEffects) {
+          //newFiber.alternate指向到current，若current不为空，说明复用了该fiber节点，这里我们要在 map 中删除，因为后面会把 map 中剩余未复用的节点删除掉的
           if (newFiber.alternate !== null) {
             // The new fiber is a work in progress, but if there exists a
             // current, that means that we reused the fiber. We need to delete
@@ -912,6 +955,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
     if (shouldTrackSideEffects) {
       // Any existing children that weren't consumed above were deleted. We need
       // to add them to the deletion list.
+      // 将 map 中没有复用的 fiber 节点添加到删除队列中，等待删除
       existingChildren.forEach(child => deleteChild(returnFiber, child));
     }
 
@@ -919,6 +963,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
       const numberOfForks = newIdx;
       pushTreeFork(returnFiber, numberOfForks);
     }
+    // 返回新链表的头节点指针
     return resultingFirstChild;
   }
 
