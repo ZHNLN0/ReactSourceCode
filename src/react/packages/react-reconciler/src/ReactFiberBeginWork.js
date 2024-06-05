@@ -1806,6 +1806,8 @@ function mountIncompleteClassComponent(
   nextProps,
   renderLanes,
 ) {
+  // IndeterminateComponent只有在组件被第一次渲染的情况下才会出现，在经过第一次渲染之后，我们就会更新组件的类型
+  // 果出现了_current存在的情况，那么可能是因为渲染时有Suspend的情况
   resetSuspendedCurrentOnMountInLegacyMode(_current, workInProgress);
 
   // Promote the fiber to a class and try rendering again.
@@ -1844,10 +1846,13 @@ function mountIndeterminateComponent(
   Component,
   renderLanes,
 ) {
+
+  // LegacyMode 旧版本兼容不考虑
   resetSuspendedCurrentOnMountInLegacyMode(_current, workInProgress);
 
   const props = workInProgress.pendingProps;
   let context;
+  // context 相关
   if (!disableLegacyContext) {
     const unmaskedContext = getUnmaskedContext(
       workInProgress,
@@ -1942,6 +1947,8 @@ function mountIndeterminateComponent(
     }
   }
 
+  // 注意这个判断条件，确认是否是 ClassComponent 看的是有没有 render() 方法
+  // 所以只要一个函数返回的对象有 render 方法，就会被认为是个 ClassComponent
   if (
     // Run these checks in production only if the flag is off.
     // Eventually we'll delete this branch altogether.
@@ -3973,6 +3980,7 @@ function beginWork(
     } else {
       // Neither props nor legacy context changes. Check if there's a pending
       // update or context change.
+      // 检查更新是否需要更新
       const hasScheduledUpdateOrContext = checkScheduledUpdateOrContext(
         current,
         renderLanes,
@@ -4031,7 +4039,7 @@ function beginWork(
   workInProgress.lanes = NoLanes;
   // beginWork方法后续的内容就是根据workInProgress.tag的值，进入不同的组件处理逻辑。
   switch (workInProgress.tag) {
-    // 函数组件 mount
+    // 函数组件
     case IndeterminateComponent: {
       return mountIndeterminateComponent(
         current,

@@ -407,6 +407,7 @@ export function createElement(
       }
     }
 
+    // script 标签创建
     if (type === 'script') {
       // Create the script via .innerHTML so its "parser-inserted" flag is
       // set to true and it does not execute
@@ -432,6 +433,7 @@ export function createElement(
       // Separate else branch instead of using `props.is || undefined` above because of a Firefox bug.
       // See discussion in https://github.com/facebook/react/pull/6896
       // and discussion in https://bugzilla.mozilla.org/show_bug.cgi?id=1276240
+      // # 常规的dom元素
       domElement = ownerDocument.createElement(type);
       // Normally attributes are assigned in `setInitialDOMProperties`, however the `multiple` and `size`
       // attributes on `select`s needs to be added before `option`s are inserted.
@@ -455,6 +457,7 @@ export function createElement(
       }
     }
   } else {
+    // svg/xml等元素的创建
     domElement = ownerDocument.createElementNS(namespaceURI, type);
   }
 

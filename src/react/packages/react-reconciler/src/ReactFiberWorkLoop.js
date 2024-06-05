@@ -2575,22 +2575,27 @@ function unwindSuspendedUnitOfWork(unitOfWork: Fiber, thrownValue: mixed) {
 function completeUnitOfWork(unitOfWork: Fiber): void {
   // Attempt to complete the current unit of work, then move to the next
   // sibling. If there are no more siblings, return to the parent fiber.
+  // 取出当前节点
   let completedWork: Fiber = unitOfWork;
   do {
     // The current, flushed, state of this fiber is the alternate. Ideally
     // nothing should rely on this, but relying on it here means that we don't
     // need an additional field on the work in progress.
+    // 取出节点 对应的current
     const current = completedWork.alternate;
+    // 取出节点的父级节点
     const returnFiber = completedWork.return;
 
     // Check if the work completed or if something threw.
     if ((completedWork.flags & Incomplete) === NoFlags) {
+      // # 正常的completeWork工作
       setCurrentDebugFiberInDEV(completedWork);
       let next;
       if (
         !enableProfilerTimer ||
         (completedWork.mode & ProfileMode) === NoMode
       ) {
+        // 开始 归阶段，归阶段是自下到上的
         next = completeWork(current, completedWork, renderLanes);
       } else {
         startProfilerTimer(completedWork);
@@ -2599,13 +2604,14 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
         stopProfilerTimerIfRunningAndRecordDelta(completedWork, false);
       }
       resetCurrentDebugFiberInDEV();
-
+      // next 不为 null 开始下一次 complareUnitOfWork
       if (next !== null) {
         // Completing this fiber spawned new work. Work on that next.
         workInProgress = next;
         return;
       }
     } else {
+      // 异常处理，省略，后续会写文章专门进行介绍
       // This fiber did not complete because something threw. Pop values off
       // the stack without entering the complete phase. If this is a boundary,
       // capture values if possible.
@@ -2654,6 +2660,8 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
       }
     }
 
+    // 取当前Fiber节点(completedWork)的兄弟(sibling)节点；
+    // 如果有值，则结束completeUnitOfWork，并将该兄弟节点作为下次performUnitOfWork的主体(unitOfWork)
     const siblingFiber = completedWork.sibling;
     if (siblingFiber !== null) {
       // If there is more work to do in this returnFiber, do that next.
@@ -2662,12 +2670,19 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
     }
     // Otherwise, return to the parent
     // $FlowFixMe[incompatible-type] we bail out when we get a null
+    // 若没有兄弟节点，则将在下次do...while循环中处理父节点(completedWork.return)
     completedWork = returnFiber;
     // Update the next thing we're working on in case something throws.
+    // 此处需要注意！
+    // 虽然把workInProgress置为completedWork，但由于没有return，即没有结束completeUnitOfWork，因此没有意义
+    // 直到completedWork（此时实际上是本循环中原completedWork.return）为null，结束do...while循环后
+    // 此时completeUnitOfWork的运行结果(workInProgress)为null
+    // 也意味着performSyncWorkOnRoot/performConcurrentWorkOnRoot中的while循环也达到了结束条件
     workInProgress = completedWork;
   } while (completedWork !== null);
 
   // We've reached the root.
+  // 更新 workInProgressRootExitStatus 状态
   if (workInProgressRootExitStatus === RootInProgress) {
     workInProgressRootExitStatus = RootCompleted;
   }
@@ -2713,6 +2728,8 @@ function commitRootImpl(
     // no more pending effects.
     // TODO: Might be better if `flushPassiveEffects` did not automatically
     // flush synchronous work at the end, to avoid factoring hazards like this.
+
+     // 循环处理副作用Effects，直到处理完成
     flushPassiveEffects();
   } while (rootWithPendingPassiveEffects !== null);
   flushRenderPhaseStrictModeWarningsInDEV();
@@ -2721,7 +2738,9 @@ function commitRootImpl(
     throw new Error('Should not already be working.');
   }
 
+  // 取出要提交的工作: 代表workInProgress HostRootFiber 即render阶段构建的workInProgress Tree的HostRootFiber
   const finishedWork = root.finishedWork;
+  // 取出Lanes
   const lanes = root.finishedLanes;
 
   if (__DEV__) {
@@ -2756,6 +2775,8 @@ function commitRootImpl(
       }
     }
   }
+
+  // 重置root状态
   root.finishedWork = null;
   root.finishedLanes = NoLanes;
 
@@ -2768,11 +2789,15 @@ function commitRootImpl(
 
   // commitRoot never returns a continuation; it always finishes synchronously.
   // So we can clear these now to allow a new callback to be scheduled.
+
+  // 重置回调任务与优先级
   root.callbackNode = null;
   root.callbackPriority = NoLane;
 
   // Check which lanes no longer have any work scheduled on them, and mark
   // those as finished.
+
+  // 合并同一批次的lanes，通过位运算，产生新的lane
   let remainingLanes = mergeLanes(finishedWork.lanes, finishedWork.childLanes);
 
   // Make sure to account for lanes that were updated by a concurrent event
@@ -2780,6 +2805,7 @@ function commitRootImpl(
   const concurrentlyUpdatedLanes = getConcurrentlyUpdatedLanes();
   remainingLanes = mergeLanes(remainingLanes, concurrentlyUpdatedLanes);
 
+  // 标记root完成
   markRootFinished(root, remainingLanes);
 
   if (root === workInProgressRoot) {
@@ -2798,6 +2824,8 @@ function commitRootImpl(
   // might get scheduled in the commit phase. (See #16714.)
   // TODO: Delete all other places that schedule the passive effect callback
   // They're redundant.
+
+  // 如果存在挂起的副作用，使用调度器生成一个task任务来处理它们
   if (
     (finishedWork.subtreeFlags & PassiveMask) !== NoFlags ||
     (finishedWork.flags & PassiveMask) !== NoFlags
@@ -2812,6 +2840,8 @@ function commitRootImpl(
       // the previous render and commit if we throttle the commit
       // with setTimeout
       pendingPassiveTransitions = transitions;
+
+      // 调度一个宏任务，处理函数组件的effects【只是调度了一个异步任务，effect回调实际上还没有处理】
       scheduleCallback(NormalSchedulerPriority, () => {
         flushPassiveEffects();
         // This render triggered passive effects: release the root cache pool
@@ -2827,25 +2857,32 @@ function commitRootImpl(
   // to check for the existence of `firstEffect` to satisfy Flow. I think the
   // only other reason this optimization exists is because it affects profiling.
   // Reconsider whether this is necessary.
+
+  // 检查HostFiber的子孙元素是存在副作用
   const subtreeHasEffects =
     (finishedWork.subtreeFlags &
       (BeforeMutationMask | MutationMask | LayoutMask | PassiveMask)) !==
     NoFlags;
+  // 检查HostFiber自身存在副作用
   const rootHasEffect =
     (finishedWork.flags &
       (BeforeMutationMask | MutationMask | LayoutMask | PassiveMask)) !==
     NoFlags;
-
+  // 任何一个有副作用，说明需要更新，进入commit逻辑
   if (subtreeHasEffects || rootHasEffect) {
+    // # 进入三个子阶段
     const prevTransition = ReactCurrentBatchConfig.transition;
     ReactCurrentBatchConfig.transition = null;
+    // 获取当前更新优先级
     const previousPriority = getCurrentUpdatePriority();
+    // 设置同步优先级，commit必须同步执行
     setCurrentUpdatePriority(DiscreteEventPriority);
-
+    // 当前上下文
     const prevExecutionContext = executionContext;
     executionContext |= CommitContext;
 
     // Reset this to null before calling lifecycles
+    // 在调用生命周期之前将其重置为null
     ReactCurrentOwner.current = null;
 
     // The commit phase is broken into several sub-phases. We do a separate pass
@@ -2855,6 +2892,8 @@ function commitRootImpl(
     // The first phase a "before mutation" phase. We use this phase to read the
     // state of the host tree right before we mutate it. This is where
     // getSnapshotBeforeUpdate is called.
+
+    // # 1,BeforeMutation 【这个阶段执行与flags相关的副作用】
     const shouldFireAfterActiveInstanceBlur = commitBeforeMutationEffects(
       root,
       finishedWork
@@ -2873,6 +2912,8 @@ function commitRootImpl(
     }
 
     // The next phase is the mutation phase, where we mutate the host tree.
+
+    // # 2,完成真实的dom渲染，更新页面【这个阶段主要是对DOM的增删改】
     commitMutationEffects(root, finishedWork, lanes);
 
     if (enableCreateEventHandleAPI) {
@@ -2880,12 +2921,19 @@ function commitRootImpl(
         afterActiveInstanceBlur();
       }
     }
+
+    // 渲染后，重置container容器信息
     resetAfterCommit(root.containerInfo);
 
     // The work-in-progress tree is now the current tree. This must come after
     // the mutation phase, so that the previous tree is still current during
     // componentWillUnmount, but before the layout phase, so that the finished
     // work is current during componentDidMount/Update.
+
+    // 根据Fiber双缓冲机制，完成Current Fiber Tree的切换
+    // 其实也并不一定叫切换，就是将最新work内容存储为当前的内容，下一次的work就可以利用当前的内容
+    // 注意：到这里是页面已经完成了更新渲染，这个交互Fiber Tree是为了保留最新的Tree，提供给下次更新使用
+    // 同时也方便调用生命周期钩子时是最新的DOM
     root.current = finishedWork;
 
     // The next phase is the layout phase, where we call effects that read
@@ -2899,6 +2947,9 @@ function commitRootImpl(
     if (enableSchedulingProfiler) {
       markLayoutEffectsStarted(lanes);
     }
+
+    // # 3, Layout阶段【这个阶段会执行一些副作用：比如class组件的mount/update钩子，Current Fiber Tree已经是本次更新的Fiber Tree】
+    // Layout名称来源于useLayoutEffect，函数组件的useLayoutEffect callback会这个阶段执行
     commitLayoutEffects(finishedWork, root, lanes);
     if (__DEV__) {
       if (enableDebugTracing) {
@@ -2925,6 +2976,7 @@ function commitRootImpl(
     ReactCurrentBatchConfig.transition = prevTransition;
   } else {
     // No effects.
+    // 本次更新没有副作用， 直接覆盖
     root.current = finishedWork;
     // Measure these anyway so the flamegraph explicitly shows that there were
     // no effects.

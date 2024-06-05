@@ -290,6 +290,7 @@ export function createInstance(
   } else {
     parentNamespace = ((hostContext: any): HostContextProd);
   }
+  // 创建DOM
   const domElement: Instance = createElement(
     type,
     props,
@@ -297,7 +298,9 @@ export function createInstance(
     parentNamespace,
   );
   precacheFiberNode(internalInstanceHandle, domElement);
+  // 更新fiber节点的props
   updateFiberProps(domElement, props);
+  // 返回dom元素
   return domElement;
 }
 

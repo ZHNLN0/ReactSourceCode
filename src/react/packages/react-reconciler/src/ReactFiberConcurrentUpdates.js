@@ -78,7 +78,6 @@ export function finishQueueingConcurrentUpdates(): void {
       }
       queue.pending = update;
     }
-
     // 把当前任务的更新管道依次标记到父节点的childLanes上，表示有子节点需要更新
     if (lane !== NoLane) {
       markUpdateLaneFromFiberToRoot(fiber, update, lane);

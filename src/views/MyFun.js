@@ -4,6 +4,7 @@ import { useEffect, createElement, useState } from '../react/packages/react';
 export default function MyFun(props) {
   console.log('MyFun组件运行了')
   const [count, setCount] = useState(1)
+  const [test, setTest] = useState(2)
   return (
     <div className='MyFun'>
       <div>MyFun组件</div>

@@ -223,6 +223,7 @@ if (supportsMutation) {
     // We only have the top Fiber that was created but we need recurse down its
     // children to find all the terminal nodes.
     let node = workInProgress.child;
+    // 有child才会处理，无child，说明自身就已经最下面的节点了
     while (node !== null) {
       if (node.tag === HostComponent || node.tag === HostText) {
         appendInitialChild(parent, node.stateNode);
@@ -872,6 +873,7 @@ function completeWork(
   // Ideally we would have a special version of the work loop only
   // for hydration.
   popTreeContext(workInProgress);
+  // 更具当前节点的 tag 执行不同的逻辑
   switch (workInProgress.tag) {
     case IndeterminateComponent:
     case LazyComponent:
@@ -1052,6 +1054,7 @@ function completeWork(
     case HostComponent: {
       popHostContext(workInProgress);
       const type = workInProgress.type;
+      // current 和 workInProgress.stateNode 存在 走更新流程 否则走初次加载流程
       if (current !== null && workInProgress.stateNode != null) {
         updateHostComponent(current, workInProgress, type, newProps);
 
@@ -1059,6 +1062,7 @@ function completeWork(
           markRef(workInProgress);
         }
       } else {
+        // 初次加载
         if (!newProps) {
           if (workInProgress.stateNode === null) {
             throw new Error(
@@ -1089,7 +1093,9 @@ function completeWork(
             markUpdate(workInProgress);
           }
         } else {
+          // 获取挂载的DOM节点
           const rootContainerInstance = getRootHostContainer();
+          // 创建HostComponent类型的FIber节点对应的真实dom元素
           const instance = createInstance(
             type,
             newProps,
@@ -1097,12 +1103,16 @@ function completeWork(
             currentHostContext,
             workInProgress,
           );
+          // 添加子元素：将下一级的dom元素挂载到instance上面
+          // 【由于appendAllChildren方法的存在，当completeWork到hostFiber时，已经形成了一颗离屏的真实DOM树】
           appendAllChildren(instance, workInProgress, false, false);
+          // 在【div react源码解析】节点上: 存储它对应的真实dom内容
           workInProgress.stateNode = instance;
 
           // Certain renderers require commit-time effects for initial mount.
           // (eg DOM renderer supports auto-focus for certain elements).
           // Make sure such renderers get scheduled for later work.
+          // 执行finalizeInitialChildren方法，完成属性的初始化：styles,innerHTML, 文本类型的children
           if (
             finalizeInitialChildren(
               instance,
@@ -1115,11 +1125,13 @@ function completeWork(
           }
         }
 
+         // 标记绑定的ref
         if (workInProgress.ref !== null) {
           // If there is a ref on a host node we need to schedule a callback
           markRef(workInProgress);
         }
       }
+      // props冒泡，将flags冒泡
       bubbleProperties(workInProgress);
       return null;
     }
