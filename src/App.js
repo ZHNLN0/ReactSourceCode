@@ -8,16 +8,17 @@ import Counter from './views/Counter.js';
 export default function App(props) {
   const ref = useRef(null)
   const [count, setCount] = useState(1)
+  const [mountState, setMountState] = useState(true)
   useEffect(() => {
     console.log(ref)
   }, [])
   
   return (
     <div className="App">
-      <div ref={ref}>react源码调试</div>
+      <div ref={ref} onClick={() => {setMountState(!mountState)}}>react源码调试</div>
       <MyFun name='MyFun'></MyFun>
       {/* <MyClass name='MyClass'></MyClass> */}
-      <Counter />
+      { mountState &&  <Counter />}
     </div>
   );
 }

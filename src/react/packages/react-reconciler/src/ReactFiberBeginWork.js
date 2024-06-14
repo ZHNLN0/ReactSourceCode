@@ -4039,7 +4039,7 @@ function beginWork(
   workInProgress.lanes = NoLanes;
   // beginWork方法后续的内容就是根据workInProgress.tag的值，进入不同的组件处理逻辑。
   switch (workInProgress.tag) {
-    // 函数组件
+    // 函数组件挂载
     case IndeterminateComponent: {
       return mountIndeterminateComponent(
         current,

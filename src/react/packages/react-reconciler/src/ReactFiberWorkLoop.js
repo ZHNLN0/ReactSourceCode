@@ -1557,6 +1557,7 @@ function performSyncWorkOnRoot(root) {
   }
   // # 执行Fiber Reconciler协调流程，创建虚拟DOM树
   let exitStatus = renderRootSync(root, lanes);
+  // 构建Fiber树时出错的状态（不考虑）
   if (root.tag !== LegacyRoot && exitStatus === RootErrored) {
     // If something threw an error, try rendering one more time. We'll render
     // synchronously to block concurrent data mutations, and we'll includes
@@ -1576,7 +1577,7 @@ function performSyncWorkOnRoot(root) {
       );
     }
   }
-
+  // 构建Fiber树时出错的状态（不考虑）
   if (exitStatus === RootFatalErrored) {
     const fatalError = workInProgressRootFatalError;
     prepareFreshStack(root, NoLanes);
@@ -1584,7 +1585,7 @@ function performSyncWorkOnRoot(root) {
     ensureRootIsScheduled(root, now());
     throw fatalError;
   }
-
+  // 构建Fiber树构建时，时间到期，开启下一个调度继续构建
   if (exitStatus === RootDidNotComplete) {
     // The render unwound without completing the tree. This happens in special
     // cases where need to exit the current render without producing a
@@ -1599,6 +1600,7 @@ function performSyncWorkOnRoot(root) {
   const finishedWork: Fiber = (root.current.alternate: any);
   root.finishedWork = finishedWork;
   root.finishedLanes = lanes;
+  // 进入 commit 阶段
   commitRoot(
     root,
     workInProgressRootRecoverableErrors,
@@ -2604,7 +2606,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
         stopProfilerTimerIfRunningAndRecordDelta(completedWork, false);
       }
       resetCurrentDebugFiberInDEV();
-      // next 不为 null 开始下一次 complareUnitOfWork
+      // completeWork 在一些非特殊的组件 complete 时都会放回 null ，所以不会进入这段逻辑
       if (next !== null) {
         // Completing this fiber spawned new work. Work on that next.
         workInProgress = next;
@@ -2662,6 +2664,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
 
     // 取当前Fiber节点(completedWork)的兄弟(sibling)节点；
     // 如果有值，则结束completeUnitOfWork，并将该兄弟节点作为下次performUnitOfWork的主体(unitOfWork)
+    // 相当于开始兄弟节点 beginWork
     const siblingFiber = completedWork.sibling;
     if (siblingFiber !== null) {
       // If there is more work to do in this returnFiber, do that next.
@@ -2670,7 +2673,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
     }
     // Otherwise, return to the parent
     // $FlowFixMe[incompatible-type] we bail out when we get a null
-    // 若没有兄弟节点，则将在下次do...while循环中处理父节点(completedWork.return)
+    // 若没有兄弟节点，则将在下次do...while循环中处理父节点的 completedWork (completedWork.return)
     completedWork = returnFiber;
     // Update the next thing we're working on in case something throws.
     // 此处需要注意！
@@ -2832,7 +2835,7 @@ function commitRootImpl(
   ) {
     if (!rootDoesHavePassiveEffects) {
       rootDoesHavePassiveEffects = true;
-      pendingPassiveEffectsRemainingLanes = remainingLanes;
+      // pendingPassiveEffectsRemainingLanes = remainingLanes;
       // workInProgressTransitions might be overwritten, so we want
       // to store it in pendingPassiveTransitions until they get processed
       // We need to pass this through as an argument to commitRoot
@@ -3275,7 +3278,9 @@ function flushPassiveEffectsImpl() {
   const prevExecutionContext = executionContext;
   executionContext |= CommitContext;
 
+  //  调用useEffect在上一次render时的销毁函数；
   commitPassiveUnmountEffects(root.current);
+   //  调用useEffect在本次render时的回调函数；
   commitPassiveMountEffects(root, root.current, lanes, transitions);
 
   // TODO: Move to commitPassiveMountEffects

@@ -1041,6 +1041,8 @@ function mountReducer<S, I, A>(
 ): [S, Dispatch<A>] {
   const hook = mountWorkInProgressHook();
   let initialState;
+
+  // 如果是懒创建的 initState，我们调用函数得到其值，否则直接获取其值
   if (init !== undefined) {
     initialState = init(initialArg);
   } else {
@@ -1910,21 +1912,29 @@ function pushEffect(
     next: (null: any),
   };
   let componentUpdateQueue: null | FunctionComponentUpdateQueue = (currentlyRenderingFiber.updateQueue: any);
+  // useEffect 在一个函数式组件中首次使用时，初始化操作
   if (componentUpdateQueue === null) {
+    // 创建 componentUpdateQueue
     componentUpdateQueue = createFunctionComponentUpdateQueue();
+    // 挂载到当前FiberNode 的updateQueue 上
     currentlyRenderingFiber.updateQueue = (componentUpdateQueue: any);
+    // effect 构建环状链表
     componentUpdateQueue.lastEffect = effect.next = effect;
   } else {
+    // 取出 最后一个 effect 对象
     const lastEffect = componentUpdateQueue.lastEffect;
     if (lastEffect === null) {
       componentUpdateQueue.lastEffect = effect.next = effect;
     } else {
+      // 取出第一个effect 对象（环状链表的最后一个的下一个就是第一个）
       const firstEffect = lastEffect.next;
+      // 继续讲当前的 effect 对象加入到环状链表中
       lastEffect.next = effect;
       effect.next = firstEffect;
       componentUpdateQueue.lastEffect = effect;
     }
   }
+  // 放回 effect 对象
   return effect;
 }
 
@@ -2025,9 +2035,13 @@ function mountEffectImpl(
   create: () => (() => void) | void,
   deps: Array<mixed> | void | null,
 ): void {
+  // 创建 对应的hook 对象
   const hook = mountWorkInProgressHook();
   const nextDeps = deps === undefined ? null : deps;
+  // 将fiberFlags赋值到当前FiberNode 的flags上，后续会更具这个字段的值判断是否需要处理effect
   currentlyRenderingFiber.flags |= fiberFlags;
+  // 使用 pushEffect 构建 effect 对象环状链表充当队列使用
+  // 并把 创建的 effect 对象最为当前 hook 对象的 memoizedState的值
   hook.memoizedState = pushEffect(
     HookHasEffect | hookFlags,
     create,
@@ -2051,6 +2065,7 @@ function updateEffectImpl(
     destroy = prevEffect.destroy;
     if (nextDeps !== null) {
       const prevDeps = prevEffect.deps;
+      // 比较 监听依赖的每一项是否相等，有一项不相等就返回 false
       if (areHookInputsEqual(nextDeps, prevDeps)) {
         hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
         return;
