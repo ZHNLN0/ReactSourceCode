@@ -543,9 +543,6 @@ function commitBeforeMutationEffectsOnFiber(finishedWork: Fiber) {
           const root = finishedWork.stateNode;
           // 设置textContent = ''; 也就是清空#div容器内容， 方便Mutation阶段的渲染
           clearContainer(root.containerInfo);
-
-          console.log(root.container)
-
         }
       }
       break;
@@ -645,6 +642,8 @@ function commitHookEffectListMount(flags: HookFlags, finishedWork: Fiber) {
     const firstEffect = lastEffect.next;
     let effect = firstEffect;
     do {
+      // 根据 flags 类型遍历执行，useEffect 的 HookFlags就执行useEffect的副作用
+      // useLayoutEffect 的 HookFlags类型就只执行相关副作用
       if ((effect.tag & flags) === flags) {
         if (enableSchedulingProfiler) {
           // useEffect 创建的
@@ -663,6 +662,7 @@ function commitHookEffectListMount(flags: HookFlags, finishedWork: Fiber) {
             setIsRunningInsertionEffect(true);
           }
         }
+        // 副作用函数执行，并将结果赋值给effect.destroy 下次更新或者卸载时会执行
         effect.destroy = create();
         if (__DEV__) {
           if ((flags & HookInsertion) !== NoHookEffect) {
@@ -1062,12 +1062,14 @@ function commitLayoutEffectOnFiber(
     case FunctionComponent:
     case ForwardRef:
     case SimpleMemoComponent: {
+      // 深度优先，递归遍历
       recursivelyTraverseLayoutEffects(
         finishedRoot,
         finishedWork,
         committedLanes,
       );
       if (flags & Update) {
+        // 执行 useLayoutEffect 的副作用
         commitHookLayoutEffects(finishedWork, HookLayout | HookHasEffect);
       }
       break;
@@ -1078,6 +1080,7 @@ function commitLayoutEffectOnFiber(
         finishedWork,
         committedLanes,
       );
+      // 执行生命周期函数
       if (flags & Update) {
         commitClassLayoutLifecycles(finishedWork, current);
       }
@@ -1085,7 +1088,7 @@ function commitLayoutEffectOnFiber(
       if (flags & Callback) {
         commitClassCallbacks(finishedWork);
       }
-
+      // 绑定 Ref
       if (flags & Ref) {
         safelyAttachRef(finishedWork, finishedWork.return);
       }
@@ -1605,6 +1608,7 @@ function commitAttachRef(finishedWork: Fiber) {
   if (ref !== null) {
     const instance = finishedWork.stateNode;
     let instanceToUse;
+    // instanceToUse 就是 instance
     switch (finishedWork.tag) {
       case HostResource:
       case HostSingleton:
@@ -1618,6 +1622,7 @@ function commitAttachRef(finishedWork: Fiber) {
     if (enableScopeAPI && finishedWork.tag === ScopeComponent) {
       instanceToUse = instance;
     }
+    // ref 是函数是，执行函数
     if (typeof ref === 'function') {
       if (shouldProfile(finishedWork)) {
         try {
@@ -1641,6 +1646,7 @@ function commitAttachRef(finishedWork: Fiber) {
       }
 
       // $FlowFixMe unable to narrow type to the non-function case
+      // 不是函数时执行赋值
       ref.current = instanceToUse;
     }
   }
@@ -1912,6 +1918,7 @@ function insertOrAppendPlacementNodeIntoContainer(
   parent: Container,
 ): void {
   const {tag} = node;
+  // Host 或者 text
   const isHost = tag === HostComponent || tag === HostText;
   if (isHost) {
     const stateNode = node.stateNode;
@@ -1929,7 +1936,9 @@ function insertOrAppendPlacementNodeIntoContainer(
     // the portal directly.
     // If the insertion is a HostSingleton then it will be placed independently
   } else {
+    // # fun App节点的child ，也就是div.App 这个节点的内容就是一个离屏的DOM树
     const child = node.child;
+    // # 将整个离屏的DOM树添加到 #div中，页面渲染完成
     if (child !== null) {
       insertOrAppendPlacementNodeIntoContainer(child, before, parent);
       let sibling = child.sibling;
