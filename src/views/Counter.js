@@ -12,10 +12,18 @@ function Counter() {
   }
 
   useLayoutEffect(() => {
-    console.log(refTest, 'setEffectCount')
+    console.log(refTest, 'useLayoutEffect')
 
     return () => {
-      console.log('afterEffect')
+      console.log('afteruseLayoutEffect')
+    }
+  }, [effectCount])
+
+  useEffect(() => {
+    console.log(refTest, 'useEffect')
+
+    return () => {
+      console.log('afteruseEffect')
     }
   }, [effectCount])
 

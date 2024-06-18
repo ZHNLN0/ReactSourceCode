@@ -290,6 +290,7 @@ function safelyDetachRef(current: Fiber, nearestMountedAncestor: Fiber | null) {
   const refCleanup = current.refCleanup;
 
   if (ref !== null) {
+    // 存在使用 refCleanup 手动清理ref时，需要调用refCleanup
     if (typeof refCleanup === 'function') {
       try {
         if (shouldProfile(current)) {
@@ -313,6 +314,7 @@ function safelyDetachRef(current: Fiber, nearestMountedAncestor: Fiber | null) {
         }
       }
     } else if (typeof ref === 'function') {
+      // 函数类型，对应 class 组件的 createRef
       let retVal;
       try {
         if (shouldProfile(current)) {
@@ -339,6 +341,7 @@ function safelyDetachRef(current: Fiber, nearestMountedAncestor: Fiber | null) {
       }
     } else {
       // $FlowFixMe unable to narrow type to RefObject
+      // 其他直接赋值null
       ref.current = null;
     }
   }
