@@ -94,7 +94,7 @@ function getClientEnvironment(publicUrl) {
       return env;
     }, {}),
     "__DEV__": false,
-    "__PROFILE__": false,
+    "__PROFILE__": true,
     "__UMD__": true,
     "__EXPERIMENTAL__": true
   };
