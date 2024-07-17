@@ -5,6 +5,8 @@ import MyFun from './views/MyFun.js';
 // import MyClass from './views/MyClass.js';
 import Counter from './views/Counter.js';
 import BadFC from './views/BadFC.js';
+import TabContainer from './views/TransitionFC';
+
 export default function App(props) {
   const ref = useRef(null)
   const [count, setCount] = useState(1)
@@ -20,6 +22,7 @@ export default function App(props) {
       {mountState}
       <MyFun name='MyFun'></MyFun>
       <Counter />
+      <TabContainer />
       {/* <MyClass name='MyClass'></MyClass> */}
       {/* { mountState &&  <Counter />} */}
       
