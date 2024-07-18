@@ -3969,8 +3969,6 @@ function beginWork(
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
-    
-    console.log(oldProps === newProps, 'oldProps === newProps')
 
     if (
       oldProps !== newProps ||

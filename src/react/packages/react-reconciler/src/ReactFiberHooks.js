@@ -2438,13 +2438,20 @@ function startTransition(
   callback: () => void,
   options?: StartTransitionOptions,
 ): void {
+  // 获取此时执行任务的优先级
   const previousPriority = getCurrentUpdatePriority();
+  // useTransition 优先级为ContinuousEventPriority === 8 持续性事件 优先级
+  // 比较当前的优先级和ContinuousEventPriority 设置更高的优先级
+  // 数字越小优先级越高
+  console.log(ContinuousEventPriority, 'ContinuousEventPriority')
   setCurrentUpdatePriority(
     higherEventPriority(previousPriority, ContinuousEventPriority),
   );
 
+  // mountState 的调度
   setPending(true);
 
+  // 打上 transition 标识
   const prevTransition = ReactCurrentBatchConfig.transition;
   ReactCurrentBatchConfig.transition = {};
   const currentTransition = ReactCurrentBatchConfig.transition;
@@ -2461,11 +2468,15 @@ function startTransition(
   }
 
   try {
+    // mountState 的调度
     setPending(false);
+    // 执行回调
     callback();
   } finally {
+    // 设置优先级
     setCurrentUpdatePriority(previousPriority);
 
+    // 设置回原来的 transition 标识，如果没有就是 null
     ReactCurrentBatchConfig.transition = prevTransition;
 
     if (__DEV__) {
@@ -2490,9 +2501,11 @@ function mountTransition(): [
 ] {
   const [isPending, setPending] = mountState(false);
   // The `start` method never changes.
+  // 将 setPending 只为闭包，私有化
   const start = startTransition.bind(null, setPending);
   const hook = mountWorkInProgressHook();
   hook.memoizedState = start;
+  // 放回值
   return [isPending, start];
 }
 

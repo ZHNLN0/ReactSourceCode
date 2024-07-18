@@ -12,7 +12,10 @@ export default function TabContainer() {
 
   function selectTab(nextTab) {
     startTransition(() => {
-      setTab(nextTab);
+      
+      setTimeout(() => {
+        setTab('contact');
+      }, 0)
     });
   }
 
@@ -50,7 +53,7 @@ function AboutTab() {
   );
 }
 
-const PostsTab = memo(function PostsTab() {
+const PostsTab = function PostsTab() {
   // 打印一次。真正变慢的地方在 SlowPost 内。
   console.log('[ARTIFICIALLY SLOW] Rendering 500 <SlowPost />');
 
@@ -63,7 +66,7 @@ const PostsTab = memo(function PostsTab() {
       {items}
     </ul>
   );
-});
+};
 
 function SlowPost({ index }) {
   let startTime = performance.now();
