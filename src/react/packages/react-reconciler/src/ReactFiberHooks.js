@@ -2389,13 +2389,17 @@ function rerenderDeferredValue<T>(value: T): T {
 }
 
 function updateDeferredValueImpl<T>(hook: Hook, prevValue: T, value: T): T {
+  // includesOnlyNonUrgentLanes 会根据当前的优先级计算出当前更新的lang是否是紧急任务，
+  // 是紧急任务会返回0，所以shouldDeferValue 表示执行紧急任务时，需要延迟value的更新。
   const shouldDeferValue = !includesOnlyNonUrgentLanes(renderLanes);
   if (shouldDeferValue) {
     // This is an urgent update. If the value has changed, keep using the
     // previous value and spawn a deferred render to update it later.
 
+    // 比较前后值是否发生改变
     if (!is(value, prevValue)) {
       // Schedule a deferred render
+      // 值发生了改变，在lanes中加入deferredLane
       const deferredLane = claimNextTransitionLane();
       currentlyRenderingFiber.lanes = mergeLanes(
         currentlyRenderingFiber.lanes,

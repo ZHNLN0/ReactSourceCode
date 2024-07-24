@@ -12,7 +12,7 @@ export default function TabContainer() {
 
   function selectTab(nextTab) {
     startTransition(() => {
-      
+      setTab('posts');
       setTimeout(() => {
         setTab('contact');
       }, 0)
@@ -21,6 +21,7 @@ export default function TabContainer() {
 
   return (
     <div>
+      {+isPending}isPending
       <TabButton
         isActive={tab === 'about'}
         onClick={() => selectTab('about')}
