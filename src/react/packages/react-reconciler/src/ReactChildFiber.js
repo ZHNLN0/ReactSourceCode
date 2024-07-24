@@ -1270,7 +1270,7 @@ function createChildReconciler(shouldTrackSideEffects): ChildReconciler {
       // 更新为兄弟节点：再次处理更新逻辑
       child = child.sibling;
     }
-    // 空标签节点
+    // child 不存在时，则表示当前的 element是需要新建的，进入下面的逻辑创建 Fiber 节点
     if (element.type === REACT_FRAGMENT_TYPE) {
       // 创建空标签节点的FiberNode
       const created = createFiberFromFragment(

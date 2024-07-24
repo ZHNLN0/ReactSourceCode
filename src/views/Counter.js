@@ -1,48 +1,29 @@
 import * as React from '../react/packages/react';
 import { useState, useEffect, useLayoutEffect, useRef } from '../react/packages/react';
 function Counter() {
-  const [effectCount, setEffectCount] = useState(9527);
+  const [show, setShow] = useState(false);
   const [addOne, setAddOne] = useState(0);
 
-  const [addThree, setAddThree] = useState(998);
-  const refTest = useRef(null)
-  
   function handleClick() {
-    setEffectCount(effectCount + 1);
+    setAddOne(addOne + 1);
+    setShow(!show)
   }
 
-  useLayoutEffect(() => {
-    console.log(refTest, 'useLayoutEffect')
-
-    return () => {
-      console.log('afteruseLayoutEffect')
-    }
-  }, [effectCount])
-
-  useEffect(() => {
-    console.log(refTest, 'useEffect')
-
-    return () => {
-      console.log('afteruseEffect')
-    }
-  }, [effectCount])
-
-  function handleClickFn() {
-    setAddOne(count => count + 1);
-    setAddThree(count => count + 3)
-    setAddOne(count => count + 1);
-    setAddThree(count => count + 3)
-    setAddOne(count => count + 1);
-  }
-  // 3
   return (
-    <>
-      {effectCount}
-      <button onClick={handleClick} ref={refTest}>+</button>
-      <button onClick={handleClickFn}>+</button>
-      {addThree}-{addOne}
-    </>
+    <div>
+      <button onClick={handleClick}>+</button>
+      <button onClick={handleClick}>show</button>
+      {addOne}
+      {show && <CounterChild/>}
+    </div>
   );
+}
+
+
+function CounterChild() {
+  return (
+    <div>CounterChild</div>
+  )
 }
 
 export default Counter
